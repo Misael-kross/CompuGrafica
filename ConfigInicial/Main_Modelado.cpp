@@ -2,7 +2,7 @@
 // Misael Ivan Sosa Cortez
 // 319033515
 // Computacion Grafica G.1
-
+//ordeeeeeeeeeeeeeeeeeen
 #include<iostream>
 
 //#define GLEW_STATIC
