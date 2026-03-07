@@ -1,272 +1,309 @@
-// Previo 3
-// Misael Ivan Sosa Cortez
-// 319033515
-// Computacion Grafica G.1
-//ordeeeeeeeeeeeeeeeeeen
-#include<iostream>
+Ôªø//Practica 4
+//Computacion Grafica eInteraccion Humano Computadora
+//Grupo:1
+//Misael Ivan Sosa Cortez
+//319033515
 
-//#define GLEW_STATIC
+#include <iostream>
+#include <vector>
 
 #include <GL/glew.h>
 #include <GLFW/glfw3.h>
+
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
 
-
-
-// Shaders
 #include "Shader.h"
 
-void Inputs(GLFWwindow *window);
+void Inputs(GLFWwindow* window);
 
+float deltaTime = 0.0f;
+float lastFrame = 0.0f;
 
 const GLint WIDTH = 800, HEIGHT = 600;
-float movX=0.0f;
-float movY=0.0f;
-float movZ=-5.0f;
+float movX = 0.0f;
+float movY = 0.0f;
+float movZ = -14.0f;   // alejado para ver el bloque completo
 float rot = 0.0f;
-int main() {
-	glfwInit();
-	//VerificaciÛn de compatibilidad 
-	// Set all the required options for GLFW
-	/*glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
-	glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
-	glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
-	glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE);*/
 
-	glfwWindowHint(GLFW_RESIZABLE, GL_FALSE);
+// ---------- Helper voxel ----------
+struct Voxel {
+    glm::vec3 p;     // posici√≥n en ‚Äúgrid units‚Äù
+    glm::vec3 s;     // escala (normalmente 1,1,1)
+    glm::vec3 color; // color del cubo
+};
 
-	GLFWwindow *window = glfwCreateWindow(WIDTH, HEIGHT, "Previo 4_Misael Ivan Sosa Cortez", nullptr, nullptr);
+static void DrawCubeVoxel(const Voxel& v, float grid,
+    GLint modelLoc, GLint colorLoc)
+{
+    // translate primero, scale despu√©s (para que la traslaci√≥n NO se escale)
+    glm::mat4 model = glm::mat4(1.0f);
+    model = glm::translate(model, v.p * grid);
+    model = glm::scale(model, v.s);
 
-	int screenWidth, screenHeight;
+    glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(model));
+    glUniform3fv(colorLoc, 1, glm::value_ptr(v.color));
+    glDrawArrays(GL_TRIANGLES, 0, 36);
+}
 
-	glfwGetFramebufferSize(window, &screenWidth, &screenHeight);
+int main()
+{
+    glfwInit();
+    glfwWindowHint(GLFW_RESIZABLE, GL_FALSE);
 
-	//VerificaciÛn de errores de creacion  ventana
-	if (nullptr == window)
-	{
-		std::cout << "Failed to create GLFW window" << std::endl;
-		glfwTerminate();
+    GLFWwindow* window = glfwCreateWindow(WIDTH, HEIGHT, "Practica 4_Misael Ivan Sosa Cortez", nullptr, nullptr);
+    if (!window)
+    {
+        std::cout << "Failed to create GLFW window\n";
+        glfwTerminate();
+        return EXIT_FAILURE;
+    }
 
-		return EXIT_FAILURE;
-	}
+    glfwMakeContextCurrent(window);
+    glewExperimental = GL_TRUE;
 
-	glfwMakeContextCurrent(window);
-	glewExperimental = GL_TRUE;
+    if (GLEW_OK != glewInit())
+    {
+        std::cout << "Failed to initialise GLEW\n";
+        return EXIT_FAILURE;
+    }
 
-	//VerificaciÛn de errores de inicializaciÛn de glew
+    int screenWidth, screenHeight;
+    glfwGetFramebufferSize(window, &screenWidth, &screenHeight);
+    glViewport(0, 0, screenWidth, screenHeight);
 
-	if (GLEW_OK != glewInit()) {
-		std::cout << "Failed to initialise GLEW" << std::endl;
-		return EXIT_FAILURE;
-	}
+    glEnable(GL_DEPTH_TEST);
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
+    Shader ourShader("Shader/core.vs", "Shader/core.frag");
 
-	// Define las dimensiones del viewport
-	glViewport(0, 0, screenWidth, screenHeight);
+    // Cubo base (solo posiciones)
+    float vertices[] = {
+        // Front
+        -0.5f,-0.5f, 0.5f,  0.5f,-0.5f, 0.5f,  0.5f, 0.5f, 0.5f,
+         0.5f, 0.5f, 0.5f, -0.5f, 0.5f, 0.5f, -0.5f,-0.5f, 0.5f,
+         // Back
+         -0.5f,-0.5f,-0.5f,  0.5f,-0.5f,-0.5f,  0.5f, 0.5f,-0.5f,
+          0.5f, 0.5f,-0.5f, -0.5f, 0.5f,-0.5f, -0.5f,-0.5f,-0.5f,
+          // Right
+           0.5f,-0.5f, 0.5f,  0.5f,-0.5f,-0.5f,  0.5f, 0.5f,-0.5f,
+           0.5f, 0.5f,-0.5f,  0.5f, 0.5f, 0.5f,  0.5f,-0.5f, 0.5f,
+           // Left
+           -0.5f, 0.5f, 0.5f, -0.5f, 0.5f,-0.5f, -0.5f,-0.5f,-0.5f,
+           -0.5f,-0.5f,-0.5f, -0.5f,-0.5f, 0.5f, -0.5f, 0.5f, 0.5f,
+           // Bottom
+           -0.5f,-0.5f,-0.5f,  0.5f,-0.5f,-0.5f,  0.5f,-0.5f, 0.5f,
+            0.5f,-0.5f, 0.5f, -0.5f,-0.5f, 0.5f, -0.5f,-0.5f,-0.5f,
+            // Top
+            -0.5f, 0.5f,-0.5f,  0.5f, 0.5f,-0.5f,  0.5f, 0.5f, 0.5f,
+             0.5f, 0.5f, 0.5f, -0.5f, 0.5f, 0.5f, -0.5f, 0.5f,-0.5f
+    };
 
+    GLuint VBO, VAO;
+    glGenVertexArrays(1, &VAO);
+    glGenBuffers(1, &VBO);
 
-	// Setup OpenGL options
-	glEnable(GL_DEPTH_TEST);
+    glBindVertexArray(VAO);
+    glBindBuffer(GL_ARRAY_BUFFER, VBO);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
 
-	// enable alpha support
-	glEnable(GL_BLEND);
-	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(GLfloat), (GLvoid*)0);
+    glEnableVertexAttribArray(0);
 
+    glBindBuffer(GL_ARRAY_BUFFER, 0);
+    glBindVertexArray(0);
 
-	// Build and compile our shader program
-	Shader ourShader("Shader/core.vs", "Shader/core.frag");
+    glm::mat4 projection(1.0f);
+    projection = glm::perspective(glm::radians(45.0f),
+        (GLfloat)screenWidth / (GLfloat)screenHeight, 0.1f, 100.0f);
 
+    // Colores
+    glm::vec3 rosaClaro(0.95f, 0.84f, 0.82f);
+    glm::vec3 rosaFuerte(0.89f, 0.35f, 0.63f);
+    glm::vec3 negro(0.0f, 0.0f, 0.0f);
 
-	// Set up vertex data (and buffer(s)) and attribute pointers
+    // VOXELS:CABEZA 
+    const float GRID = 1.05f;
 
-	
+    std::vector<Voxel> head;
+    std::vector<Voxel> body;
 
-	// use with Perspective Projection
-	float vertices[] = {
-		-0.5f, -0.5f, 0.5f, 1.0f, 0.0f,0.0f,//Front
-		0.5f, -0.5f, 0.5f,  1.0f, 0.0f,0.0f,
-		0.5f,  0.5f, 0.5f,  1.0f, 0.0f,0.0f,
-		0.5f,  0.5f, 0.5f,  1.0f, 0.0f,0.0f,
-		-0.5f,  0.5f, 0.5f, 1.0f, 0.0f,0.0f,
-		-0.5f, -0.5f, 0.5f, 1.0f, 0.0f,0.0f,
-		
-	    -0.5f, -0.5f,-0.5f, 0.0f, 1.0f,0.0f,//Back
-		 0.5f, -0.5f,-0.5f, 0.0f, 1.0f,0.0f,
-		 0.5f,  0.5f,-0.5f, 0.0f, 1.0f,0.0f,
-		 0.5f,  0.5f,-0.5f, 0.0f, 1.0f,0.0f,
-	    -0.5f,  0.5f,-0.5f, 0.0f, 1.0f,0.0f,
-	    -0.5f, -0.5f,-0.5f, 0.0f, 1.0f,0.0f,
-		
-		 0.5f, -0.5f,  0.5f,  0.0f, 0.0f,1.0f,
-		 0.5f, -0.5f, -0.5f,  0.0f, 0.0f,1.0f,
-		 0.5f,  0.5f, -0.5f,  0.0f, 0.0f,1.0f,
-		 0.5f,  0.5f, -0.5f,  0.0f, 0.0f,1.0f,
-		 0.5f,  0.5f,  0.5f,  0.0f, 0.0f,1.0f,
-		 0.5f,  -0.5f, 0.5f, 0.0f, 0.0f,1.0f,
-      
-		-0.5f,  0.5f,  0.5f,  1.0f, 1.0f,0.0f,
-		-0.5f,  0.5f, -0.5f,  1.0f, 1.0f,0.0f,
-		-0.5f, -0.5f, -0.5f,  1.0f, 1.0f,0.0f,
-		-0.5f, -0.5f, -0.5f,  1.0f, 1.0f,0.0f,
-		-0.5f, -0.5f,  0.5f,  1.0f, 1.0f,0.0f,
-		-0.5f,  0.5f,  0.5f,  1.0f, 1.0f,0.0f,
-		
-		-0.5f, -0.5f, -0.5f, 0.0f, 1.0f,1.0f,
-		0.5f, -0.5f, -0.5f,  0.0f, 1.0f,1.0f,
-		0.5f, -0.5f,  0.5f,  0.0f, 1.0f,1.0f,
-		0.5f, -0.5f,  0.5f,  0.0f, 1.0f,1.0f,
-		-0.5f, -0.5f,  0.5f, 0.0f, 1.0f,1.0f,
-		-0.5f, -0.5f, -0.5f, 0.0f, 1.0f,1.0f,
-		
-		-0.5f,  0.5f, -0.5f, 1.0f, 0.2f,0.5f,
-		0.5f,  0.5f, -0.5f,  1.0f, 0.2f,0.5f,
-		0.5f,  0.5f,  0.5f,  1.0f, 0.2f,0.5f,
-		0.5f,  0.5f,  0.5f,  1.0f, 0.2f,0.5f,
-		-0.5f,  0.5f,  0.5f, 1.0f, 0.2f,0.5f,
-		-0.5f,  0.5f, -0.5f, 1.0f, 0.2f,0.5f,
-	};
+    float headBaseY = 3.0f;   
+    float headZ = 0.0f;       
 
+    for (int iy = 0; iy < 3; iy++)
+    {
+        for (int iz = -1; iz <= 1; iz++)
+        {
+            for (int ix = -2; ix <= 2; ix++)
+            {
+                head.push_back({
+                    glm::vec3((float)ix, headBaseY + (float)iy, headZ + (float)iz),
+                    glm::vec3(1.0f, 1.0f, 1.0f),
+                    rosaClaro
+                    });
+            }
+        }
+    }
 
+// NARIZ 
 
+    float noseY = headBaseY + 1.0f;   
+    float noseZ = 2.0f;               
 
-	GLuint VBO, VAO;
-	glGenVertexArrays(1, &VAO);
-	glGenBuffers(1, &VBO);
-	//glGenBuffers(1, &EBO);
+    head.push_back({ glm::vec3(0.0f, noseY, noseZ), glm::vec3(1.0f), rosaFuerte });
 
-	// Enlazar  Vertex Array Object
-	glBindVertexArray(VAO);
+// OJOS NEGROS
 
-	//2.- Copiamos nuestros arreglo de vertices en un buffer de vertices para que OpenGL lo use
-	glBindBuffer(GL_ARRAY_BUFFER, VBO);
-	glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
-	// 3.Copiamos nuestro arreglo de indices en  un elemento del buffer para que OpenGL lo use
-	/*glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO);
-	glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(indices), indices, GL_STATIC_DRAW);*/
+    float eyeY = headBaseY + 1.0f;
+    float eyeZ = 2.0f;  
 
-	// 4. Despues colocamos las caracteristicas de los vertices
+    head.push_back({ glm::vec3(-2.0f, eyeY, eyeZ), glm::vec3(1.0f), negro });
+    head.push_back({ glm::vec3(2.0f, eyeY, eyeZ), glm::vec3(1.0f), negro });
 
-	//Posicion
-	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(GLfloat), (GLvoid *)0);
-	glEnableVertexAttribArray(0);
+// CUERPO BEIGE
 
-	//Color
-	glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(GLfloat), (GLvoid *)(3 * sizeof(GLfloat)));
-	glEnableVertexAttribArray(1);
+    float bodyTopY = headBaseY - 1.0f;  
+    float bodyZ = 0.0f;                
 
-	glBindBuffer(GL_ARRAY_BUFFER, 0);
+    for (int iy = 0; iy < 5; iy++)        
+    {
+        for (int ix = -1; ix <= 1; ix++)      
+        {
+            body.push_back({
+                glm::vec3((float)ix, bodyTopY - (float)iy, bodyZ),
+                glm::vec3(1.0f, 1.0f, 1.0f),
+                rosaClaro
+                });
+        }
+    }
+   
+// Patas
+    float zFront = 1.0f;
 
+    float yBottom = bodyTopY - 4.0f;  
+    float ySecond = bodyTopY - 3.0f;   
 
-	glBindVertexArray(0); // Unbind VAO (it's always a good thing to unbind any buffer/array to prevent strange bugs)
+    body.push_back({ glm::vec3(-1.0f, yBottom, zFront), glm::vec3(1.0f), rosaClaro });
+    body.push_back({ glm::vec3(1.0f, yBottom, zFront), glm::vec3(1.0f), rosaClaro });
+    body.push_back({ glm::vec3(-1.0f, yBottom, zFront), glm::vec3(1.0f), rosaClaro });
+    body.push_back({ glm::vec3(1.0f, yBottom, zFront), glm::vec3(1.0f), rosaClaro });
 
-	
-	glm::mat4 projection=glm::mat4(1);
+    body.push_back({ glm::vec3(-1.0f, yBottom + 0.0f, zFront + 1.0f), glm::vec3(1.0f), rosaFuerte });
+    body.push_back({ glm::vec3(1.0f, yBottom + 0.0f, zFront + 1.0f), glm::vec3(1.0f), rosaFuerte });
+  
+    // BRAZOS
+  
+    float armY = bodyTopY - 1.0f;
+    float armZ = 0.0f;
 
-	projection = glm::perspective(glm::radians(45.0f), (GLfloat)screenWidth / (GLfloat)screenHeight, 0.1f, 100.0f);//FOV, Radio de aspecto,znear,zfar
-	//projection = glm::ortho(0.0f, (GLfloat)screenWidth, 0.0f, (GLfloat)screenHeight, 0.1f, 1000.0f);//Izq,Der,Fondo,Alto,Cercania,Lejania
-	while (!glfwWindowShouldClose(window))
-	{
-		
-		Inputs(window);
-		// Check if any events have been activiated (key pressed, mouse moved etc.) and call corresponding response functions
-		glfwPollEvents();
+    // Izquierda
 
-		// Render
-		// Clear the colorbuffer
-		glClearColor(1.0f, 1.0f, 1.0f, 1.0f);
-		glClear(GL_COLOR_BUFFER_BIT| GL_DEPTH_BUFFER_BIT);
+    body.push_back({ glm::vec3(-2.0f, armY, armZ), glm::vec3(1.0f), rosaClaro });
+    body.push_back({ glm::vec3(-3.0f, armY, armZ), glm::vec3(1.0f), rosaFuerte });
 
+    // Derecha
 
-		// Draw our first triangle
-		ourShader.Use();
-		glm::mat4 model=glm::mat4(1);
-		glm::mat4 view=glm::mat4(1);
-	
+    body.push_back({ glm::vec3(2.0f, armY, armZ), glm::vec3(1.0f), rosaClaro });
+    body.push_back({ glm::vec3(3.0f, armY, armZ), glm::vec3(1.0f), rosaFuerte });
+ 
+//REJAS SUPERIORES
+    float yTop = headBaseY + 2.0f;   
+    float hornZ = 0.0f;             
 
-		view = glm::translate(view, glm::vec3(movX,movY, movZ));
-		view = glm::rotate(view, glm::radians(rot), glm::vec3(0.0f, 1.0f, 0.0f));
-
-		GLint modelLoc = glGetUniformLocation(ourShader.Program, "model");
-		GLint viewLoc = glGetUniformLocation(ourShader.Program, "view");
-		GLint projecLoc = glGetUniformLocation(ourShader.Program, "projection");
-
-
-		glUniformMatrix4fv(projecLoc, 1, GL_FALSE, glm::value_ptr(projection));
-		glUniformMatrix4fv(viewLoc, 1, GL_FALSE, glm::value_ptr(view));
-		glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(model));
-	
-
-		glBindVertexArray(VAO);
-	
-		//Tabla de la mesa
-	    model = glm::mat4(1.0f);
-		model = glm::scale(model, glm::vec3(3.0f, 0.1f, 2.0f));  // Ancho, grosor, profundidad
-		glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(model));
-		glDrawArrays(GL_TRIANGLES, 0, 36);
-
-		//Pata 1 de la mesa
-		model = glm::mat4(1.0f);
-		model = glm::scale(model, glm::vec3(0.1f, 0.6f, 0.1f));  // Ancho, grosor, profundidad
-		model = glm::translate(model, glm::vec3(2.9f, -0.6f, 1.9f));  // Posiciona la pata
-		glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(model));
-		glDrawArrays(GL_TRIANGLES, 0, 36);
-
-		// Pata 2
-		model = glm::mat4(1.0f);
-		model = glm::scale(model, glm::vec3(0.1f, 0.6f, 0.1f));
-		model = glm::translate(model, glm::vec3(-2.9f, -0.6f, 1.9f));
-		glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(model));
-		glDrawArrays(GL_TRIANGLES, 0, 36);
-
-		// Pata 3
-		model = glm::mat4(1.0f);
-		model = glm::scale(model, glm::vec3(0.1f, 0.6f, 0.1f));
-		model = glm::translate(model, glm::vec3(-2.9f, -0.6f, -1.9f));
-		glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(model));
-		glDrawArrays(GL_TRIANGLES, 0, 36);
-
-		// Pata 4
-		model = glm::mat4(1.0f);
-		model = glm::scale(model, glm::vec3(0.1f, 0.6f, 0.1f));
-		model = glm::translate(model, glm::vec3(2.9f, -0.6f, -1.9f));
-		glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(model));
-		glDrawArrays(GL_TRIANGLES, 0, 36);
-
-		glBindVertexArray(0);
-
-		// Swap the screen buffers
-		glfwSwapBuffers(window);
-	
-	}
-	glDeleteVertexArrays(1, &VAO);
-	glDeleteBuffers(1, &VBO);
+    // LADO IZQUIERDO
+    head.push_back({ glm::vec3(-2.0f, yTop + 1.0f, hornZ), glm::vec3(1.0f), rosaFuerte });
+    head.push_back({ glm::vec3(-2.0f, yTop + 2.0f, hornZ), glm::vec3(1.0f), rosaFuerte });
+    head.push_back({ glm::vec3(-1.0f, yTop + 1.0f, hornZ), glm::vec3(1.0f), rosaFuerte });
 
 
-	glfwTerminate();
-	return EXIT_SUCCESS;
- }
+    // LADO DERECHO
+    head.push_back({ glm::vec3(2.0f, yTop + 1.0f, hornZ), glm::vec3(1.0f), rosaFuerte });
+    head.push_back({ glm::vec3(2.0f, yTop + 2.0f, hornZ), glm::vec3(1.0f), rosaFuerte });
+    head.push_back({ glm::vec3(1.0f, yTop + 1.0f, hornZ), glm::vec3(1.0f), rosaFuerte });
 
- void Inputs(GLFWwindow *window) {
-	 if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS)  //GLFW_RELEASE
-		 glfwSetWindowShouldClose(window, true);
-	 if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS)
-		 movX += 0.01f;
-	 if (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS)
-		 movX -= 0.01f;
-	 if (glfwGetKey(window, GLFW_KEY_PAGE_UP) == GLFW_PRESS)
-		 movY += 0.01f;
-	 if (glfwGetKey(window, GLFW_KEY_PAGE_DOWN) == GLFW_PRESS)
-		 movY -= 0.01f;
-	 if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS)
-		 movZ -= 0.01f;
-	 if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS)
-		 movZ += 0.01f;
-	 if (glfwGetKey(window, GLFW_KEY_RIGHT) == GLFW_PRESS)
-		 rot += 0.1f;
-	 if (glfwGetKey(window, GLFW_KEY_LEFT) == GLFW_PRESS)
-		 rot -= 0.1f;
- }
+// BRANQUIAS LATERALES
+    float y0 = headBaseY + 0.0f;
+    float y1 = headBaseY + 1.0f;
+    float y2 = headBaseY + 2.0f;
 
+    float zSide = 1.0f;
 
+    // IZQUIERDA
+    head.push_back({ glm::vec3(-4.0f, y2, zSide), glm::vec3(1.0f), rosaFuerte }); // arriba-afuera
+    head.push_back({ glm::vec3(-3.0f, y1, zSide), glm::vec3(1.0f), rosaFuerte }); // medio-pegado
+    head.push_back({ glm::vec3(-4.0f, y1, zSide), glm::vec3(1.0f), rosaFuerte }); // medio-afuera
+    head.push_back({ glm::vec3(-3.0f, y0, zSide), glm::vec3(1.0f), rosaFuerte }); // abajo-pegado
+
+    // DERECHA
+    head.push_back({ glm::vec3(4.0f, y2, zSide), glm::vec3(1.0f), rosaFuerte }); // arriba-afuera
+    head.push_back({ glm::vec3(3.0f, y1, zSide), glm::vec3(1.0f), rosaFuerte }); // medio-pegado
+    head.push_back({ glm::vec3(4.0f, y1, zSide), glm::vec3(1.0f), rosaFuerte }); // medio-afuera
+    head.push_back({ glm::vec3(3.0f, y0, zSide), glm::vec3(1.0f), rosaFuerte }); // abajo-pegado
+    // ---------------- Render loop ----------------
+    while (!glfwWindowShouldClose(window))
+    {
+        float currentFrame = (float)glfwGetTime();
+        deltaTime = currentFrame - lastFrame;
+        lastFrame = currentFrame;
+
+        Inputs(window);
+        glfwPollEvents();
+
+        glClearColor(1, 1, 1, 1);
+        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+        ourShader.Use();
+
+        glm::mat4 view(1.0f);
+        view = glm::translate(view, glm::vec3(movX, movY, movZ));
+        view = glm::rotate(view, glm::radians(rot), glm::vec3(0, 1, 0));
+
+        GLint modelLoc = glGetUniformLocation(ourShader.Program, "model");
+        GLint viewLoc = glGetUniformLocation(ourShader.Program, "view");
+        GLint projLoc = glGetUniformLocation(ourShader.Program, "projection");
+        GLint colorLoc = glGetUniformLocation(ourShader.Program, "objectColor");
+
+        glUniformMatrix4fv(projLoc, 1, GL_FALSE, glm::value_ptr(projection));
+        glUniformMatrix4fv(viewLoc, 1, GL_FALSE, glm::value_ptr(view));
+
+        glBindVertexArray(VAO);
+
+        // Dibuja SOLO la cabeza
+        for (const auto& v : head)
+            DrawCubeVoxel(v, GRID, modelLoc, colorLoc);
+        for (const auto& v : body)
+            DrawCubeVoxel(v, GRID, modelLoc, colorLoc);
+
+        glBindVertexArray(0);
+        glfwSwapBuffers(window);
+    }
+
+    glDeleteVertexArrays(1, &VAO);
+    glDeleteBuffers(1, &VBO);
+    glfwTerminate();
+    return EXIT_SUCCESS;
+}
+
+void Inputs(GLFWwindow* window)
+{
+    float speed = 6.0f * deltaTime;
+    float rotSpeed = 90.0f * deltaTime;
+
+    if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS)
+        glfwSetWindowShouldClose(window, true);
+
+    if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS) movX += speed;
+    if (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS) movX -= speed;
+
+    if (glfwGetKey(window, GLFW_KEY_PAGE_UP) == GLFW_PRESS)   movY += speed;
+    if (glfwGetKey(window, GLFW_KEY_PAGE_DOWN) == GLFW_PRESS) movY -= speed;
+
+    if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS) movZ -= speed;
+    if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS) movZ += speed;
+
+    if (glfwGetKey(window, GLFW_KEY_RIGHT) == GLFW_PRESS) rot += rotSpeed;
+    if (glfwGetKey(window, GLFW_KEY_LEFT) == GLFW_PRESS)  rot -= rotSpeed;
+}
