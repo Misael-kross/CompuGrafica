@@ -1,9 +1,10 @@
-//Previo 6
-//Computacion Grafica eInteraccion Humano Computadora
-//Grupo:1
+//Practica 6
+//Computacion Grafica e Interaccion Humano Computadora
+//Grupo: 1
 //Misael Ivan Sosa Cortez
-//319033515
-// Std. Includes
+//Carga de multiples modelos en una escena
+
+#include <iostream>
 #include <string>
 
 // GLEW
@@ -17,7 +18,7 @@
 #include "Camera.h"
 #include "Model.h"
 
-// GLM Mathemtics
+// GLM Mathematics
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
@@ -31,93 +32,80 @@ const GLuint WIDTH = 800, HEIGHT = 600;
 int SCREEN_WIDTH, SCREEN_HEIGHT;
 
 // Function prototypes
-void KeyCallback( GLFWwindow *window, int key, int scancode, int action, int mode );
-void MouseCallback( GLFWwindow *window, double xPos, double yPos );
-void DoMovement( );
-
+void KeyCallback(GLFWwindow* window, int key, int scancode, int action, int mode);
+void MouseCallback(GLFWwindow* window, double xPos, double yPos);
+void DoMovement();
 
 // Camera
-Camera camera( glm::vec3( 0.0f, 0.0f, 3.0f ) );
+Camera camera(glm::vec3(0.0f, 0.0f, 10.0f));
 bool keys[1024];
-GLfloat lastX = 400, lastY = 300;
+GLfloat lastX = 400.0f, lastY = 300.0f;
 bool firstMouse = true;
 
 GLfloat deltaTime = 0.0f;
 GLfloat lastFrame = 0.0f;
 
-
-
-int main( )
+int main()
 {
-    // Init GLFW
-    glfwInit( );
-    // Set all the required options for GLFW
-    glfwWindowHint( GLFW_CONTEXT_VERSION_MAJOR, 3 );
-    glfwWindowHint( GLFW_CONTEXT_VERSION_MINOR, 3 );
-    glfwWindowHint( GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE );
-    glfwWindowHint( GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE );
-    glfwWindowHint( GLFW_RESIZABLE, GL_FALSE );
-    
-    // Create a GLFWwindow object that we can use for GLFW's functions
-    GLFWwindow *window = glfwCreateWindow( WIDTH, HEIGHT, "Previo 6_Misael Ivan Sosa Cortez", nullptr, nullptr );
+    glfwInit();
 
-    if (nullptr == window)
+    glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
+    glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
+    glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
+    glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE);
+    glfwWindowHint(GLFW_RESIZABLE, GL_FALSE);
+
+    GLFWwindow* window = glfwCreateWindow(WIDTH, HEIGHT, "Practica 6 - Misael Ivan Sosa Cortez", nullptr, nullptr);
+
+    if (window == nullptr)
     {
         std::cout << "Failed to create GLFW window" << std::endl;
         glfwTerminate();
-
         return EXIT_FAILURE;
     }
 
     glfwMakeContextCurrent(window);
-
     glfwGetFramebufferSize(window, &SCREEN_WIDTH, &SCREEN_HEIGHT);
 
-    // Set the required callback functions
     glfwSetKeyCallback(window, KeyCallback);
     glfwSetCursorPosCallback(window, MouseCallback);
 
-    // GLFW Options
-    //glfwSetInputMode( window, GLFW_CURSOR, GLFW_CURSOR_DISABLED );
-
-    // Set this to true so GLEW knows to use a modern approach to retrieving function pointers and extensions
     glewExperimental = GL_TRUE;
-    // Initialize GLEW to setup the OpenGL Function pointers
     if (GLEW_OK != glewInit())
     {
         std::cout << "Failed to initialize GLEW" << std::endl;
         return EXIT_FAILURE;
     }
 
-    // Define the viewport dimensions
     glViewport(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT);
-
-    // OpenGL options
     glEnable(GL_DEPTH_TEST);
 
-    // Setup and compile our shaders-- ahora se cargan estos nuevos shaders 
     Shader shader("Shader/modelLoading.vs", "Shader/modelLoading.frag");
 
-    // Load models
-    Model dog((char*)"Models/RedDog.obj");
-    glm::mat4 projection = glm::perspective(camera.GetZoom(), (float)SCREEN_WIDTH / (float)SCREEN_HEIGHT, 0.1f, 100.0f);
+    // Modelos
+    Model perro((char*)"Models/RedDog.obj");
+    Model gato((char*)"Models/Gato/12222_Cat_v1_l3.obj");
+    Model casco((char*)"Models/Casco/13584_Pot_Helmet_with_Visor_v1_L3.obj");
+    Model escudo((char*)"Models/Escudo/templar.obj");
+    Model espada((char*)"Models/Espada/dagger.obj");
 
+    glm::mat4 projection = glm::perspective(
+        camera.GetZoom(),
+        (float)SCREEN_WIDTH / (float)SCREEN_HEIGHT,
+        0.1f,
+        100.0f
+    );
 
-
-    // Game loop
     while (!glfwWindowShouldClose(window))
     {
-        // Set frame time
         GLfloat currentFrame = glfwGetTime();
         deltaTime = currentFrame - lastFrame;
         lastFrame = currentFrame;
 
-        // Check and call events
         glfwPollEvents();
         DoMovement();
 
-        // Clear the colorbuffer
-        glClearColor(0.5f, 0.5f, 0.5f, 1.0f);
+        glClearColor(0.82f, 0.82f, 0.82f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
         shader.Use();
@@ -126,17 +114,97 @@ int main( )
         glUniformMatrix4fv(glGetUniformLocation(shader.Program, "projection"), 1, GL_FALSE, glm::value_ptr(projection));
         glUniformMatrix4fv(glGetUniformLocation(shader.Program, "view"), 1, GL_FALSE, glm::value_ptr(view));
 
-        // Draw the loaded model
-        glm::mat4 model(1);
-        glUniformMatrix4fv(glGetUniformLocation(shader.Program, "model"), 1, GL_FALSE, glm::value_ptr(model));
-        dog.Draw(shader);
+        glm::mat4 model;
 
-        model = glm::translate(model, glm::vec3(3.0f, 0.0f, 0.0f));
-        model = glm::scale(model, glm::vec3(2.0f, 2.0f, 2.0));
-        glUniformMatrix4fv(glGetUniformLocation(shader.Program, "model"), 1, GL_FALSE, glm::value_ptr(model));
-        dog.Draw(shader);
+        // =========================================================
+        // PERSONAJE IZQUIERDO: PERRO
+        // =========================================================
 
-        // Swap the buffers
+// Perro izquierdo mirando al centro
+        model = glm::mat4(1.0f);
+        model = glm::translate(model, glm::vec3(-1.85f, -2.15f, 0.0f));
+        model = glm::rotate(model, glm::radians(0.0f), glm::vec3(0.0f, 1.0f, 0.0f));
+        model = glm::scale(model, glm::vec3(0.95f, 0.95f, 0.95f));
+        glUniformMatrix4fv(glGetUniformLocation(shader.Program, "model"), 1, GL_FALSE, glm::value_ptr(model));
+        perro.Draw(shader);
+
+        // Casco izquierdo sobre el perro
+        model = glm::mat4(1.0f);
+        model = glm::translate(model, glm::vec3(-1.65f, -0.55f, 0.12f));
+        model = glm::rotate(model, glm::radians(90.0f), glm::vec3(1.0f, 0.0f, 0.0f));
+        model = glm::rotate(model, glm::radians(90.0f), glm::vec3(0.0f, 1.0f, 0.0f));
+        model = glm::scale(model, glm::vec3(0.016f, 0.016f, 0.016f));
+        glUniformMatrix4fv(glGetUniformLocation(shader.Program, "model"), 1, GL_FALSE, glm::value_ptr(model));
+        casco.Draw(shader);
+
+        // Escudo izquierdo visible al frente
+        model = glm::mat4(1.0f);
+        model = glm::translate(model, glm::vec3(-2.05f, -1.25f, 0.55f));
+        model = glm::rotate(model, glm::radians(90.0f), glm::vec3(1.0f, 0.0f, 0.0f));
+        model = glm::rotate(model, glm::radians(12.0f), glm::vec3(0.0f, 0.0f, 1.0f));
+        model = glm::scale(model, glm::vec3(0.010f, 0.010f, 0.010f));
+        glUniformMatrix4fv(glGetUniformLocation(shader.Program, "model"), 1, GL_FALSE, glm::value_ptr(model));
+        escudo.Draw(shader);
+
+        // Espada izquierda cerca del perro
+        model = glm::mat4(1.0f);
+        model = glm::translate(model, glm::vec3(-1.15f, -1.30f, 0.20f));
+        model = glm::rotate(model, glm::radians(-20.0f), glm::vec3(0.0f, 0.0f, 1.0f));
+        model = glm::rotate(model, glm::radians(90.0f), glm::vec3(1.0f, 0.0f, 0.0f));
+        model = glm::scale(model, glm::vec3(0.013f, 0.013f, 0.013f));
+        glUniformMatrix4fv(glGetUniformLocation(shader.Program, "model"), 1, GL_FALSE, glm::value_ptr(model));
+        espada.Draw(shader);
+
+        // =========================================================
+        // PERSONAJE DERECHO: GATO
+        // =========================================================
+
+// Gato derecho mirando al centro y acostado correctamente
+        model = glm::mat4(1.0f);
+        model = glm::translate(model, glm::vec3(2.7f, -2.35f, 0.0f));
+
+        // Primero corrige la orientacion base del modelo
+        model = glm::rotate(model, glm::radians(90.0f), glm::vec3(1.0f, 0.0f, 0.0f));
+
+        // Luego haz que mire hacia el centro
+        model = glm::rotate(model, glm::radians(180.0f), glm::vec3(0.0f, 1.0f, 0.0f));
+
+        // Ajuste fino opcional lateral
+        model = glm::rotate(model, glm::radians(8.0f), glm::vec3(0.0f, 0.0f, 1.0f));
+
+        model = glm::scale(model, glm::vec3(0.02f, 0.02f, 0.02f));
+        glUniformMatrix4fv(glGetUniformLocation(shader.Program, "model"), 1, GL_FALSE, glm::value_ptr(model));
+        gato.Draw(shader);
+
+        // Casco derecho sobre el gato
+        model = glm::mat4(1.0f);
+        model = glm::translate(model, glm::vec3(1.80f, -0.55f, 0.12f));
+        model = glm::rotate(model, glm::radians(-90.0f), glm::vec3(1.0f, 0.0f, 0.0f));
+        model = glm::rotate(model, glm::radians(-90.0f), glm::vec3(0.0f, 1.0f, 0.0f));
+        model = glm::scale(model, glm::vec3(0.016f, 0.016f, 0.016f));
+        glUniformMatrix4fv(glGetUniformLocation(shader.Program, "model"), 1, GL_FALSE, glm::value_ptr(model));
+        casco.Draw(shader);
+
+        // Escudo derecho visible al frente
+        model = glm::mat4(1.0f);
+        model = glm::translate(model, glm::vec3(2.05f, -1.20f, 0.55f));
+        model = glm::rotate(model, glm::radians(90.0f), glm::vec3(1.0f, 0.0f, 0.0f));
+        model = glm::rotate(model, glm::radians(-12.0f), glm::vec3(0.0f, 0.0f, 1.0f));
+        model = glm::rotate(model, glm::radians(180.0f), glm::vec3(0.0f, 1.0f, 0.0f));
+        model = glm::scale(model, glm::vec3(0.010f, 0.010f, 0.010f));
+        glUniformMatrix4fv(glGetUniformLocation(shader.Program, "model"), 1, GL_FALSE, glm::value_ptr(model));
+        escudo.Draw(shader);
+
+        // Espada derecha cerca del gato
+        model = glm::mat4(1.0f);
+        model = glm::translate(model, glm::vec3(1.10f, -1.28f, 0.20f));
+        model = glm::rotate(model, glm::radians(20.0f), glm::vec3(0.0f, 0.0f, 1.0f));
+        model = glm::rotate(model, glm::radians(90.0f), glm::vec3(1.0f, 0.0f, 0.0f));
+        model = glm::rotate(model, glm::radians(180.0f), glm::vec3(0.0f, 1.0f, 0.0f));
+        model = glm::scale(model, glm::vec3(0.013f, 0.013f, 0.013f));
+        glUniformMatrix4fv(glGetUniformLocation(shader.Program, "model"), 1, GL_FALSE, glm::value_ptr(model));
+        espada.Draw(shader);
+
         glfwSwapBuffers(window);
     }
 
@@ -144,73 +212,49 @@ int main( )
     return 0;
 }
 
-
-// Moves/alters the camera positions based on user input
 void DoMovement()
 {
-    // Camera controls
     if (keys[GLFW_KEY_W] || keys[GLFW_KEY_UP])
-    {
         camera.ProcessKeyboard(FORWARD, deltaTime);
-    }
 
     if (keys[GLFW_KEY_S] || keys[GLFW_KEY_DOWN])
-    {
         camera.ProcessKeyboard(BACKWARD, deltaTime);
-    }
 
     if (keys[GLFW_KEY_A] || keys[GLFW_KEY_LEFT])
-    {
         camera.ProcessKeyboard(LEFT, deltaTime);
-    }
 
     if (keys[GLFW_KEY_D] || keys[GLFW_KEY_RIGHT])
-    {
         camera.ProcessKeyboard(RIGHT, deltaTime);
-    }
-
-
 }
 
-// Is called whenever a key is pressed/released via GLFW
 void KeyCallback(GLFWwindow* window, int key, int scancode, int action, int mode)
 {
-    if (GLFW_KEY_ESCAPE == key && GLFW_PRESS == action)
-    {
+    if (key == GLFW_KEY_ESCAPE && action == GLFW_PRESS)
         glfwSetWindowShouldClose(window, GL_TRUE);
-    }
 
     if (key >= 0 && key < 1024)
     {
         if (action == GLFW_PRESS)
-        {
             keys[key] = true;
-        }
         else if (action == GLFW_RELEASE)
-        {
             keys[key] = false;
-        }
     }
-
-
-
-
 }
 
 void MouseCallback(GLFWwindow* window, double xPos, double yPos)
 {
     if (firstMouse)
     {
-        lastX = xPos;
-        lastY = yPos;
+        lastX = (GLfloat)xPos;
+        lastY = (GLfloat)yPos;
         firstMouse = false;
     }
 
-    GLfloat xOffset = xPos - lastX;
-    GLfloat yOffset = lastY - yPos;  // Reversed since y-coordinates go from bottom to left
+    GLfloat xOffset = (GLfloat)xPos - lastX;
+    GLfloat yOffset = lastY - (GLfloat)yPos;
 
-    lastX = xPos;
-    lastY = yPos;
+    lastX = (GLfloat)xPos;
+    lastY = (GLfloat)yPos;
 
     camera.ProcessMouseMovement(xOffset, yOffset);
 }
