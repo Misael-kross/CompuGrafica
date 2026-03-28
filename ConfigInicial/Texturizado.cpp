@@ -183,7 +183,7 @@ int main()
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 
-	unsigned char* image = stbi_load("images/dado1.png", &textureWidth, &textureHeight, &nrChannels, 0);
+	unsigned char* image = stbi_load("images/dado2.png", &textureWidth, &textureHeight, &nrChannels, 0);
 
 	if (image)
 	{
@@ -217,7 +217,7 @@ int main()
 		glfwPollEvents();
 		DoMovement();
 
-		glClearColor(0.6f, 0.5f, 0.3f, 1.0f);
+		glClearColor(1.0f, 1.0f, 1.0f, 1.0f);
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
 		lampShader.Use();
