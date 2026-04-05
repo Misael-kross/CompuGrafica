@@ -1,4 +1,4 @@
-//Previo 6
+//Previo 8
 //Computacion Grafica eInteraccion Humano Computadora
 //Grupo:1
 //Misael Ivan Sosa Cortez
