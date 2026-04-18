@@ -1,4 +1,4 @@
-//Previo 8
+//Shader
 //Computacion Grafica eInteraccion Humano Computadora
 //Grupo:1
 //Misael Ivan Sosa Cortez
