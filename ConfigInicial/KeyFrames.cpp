@@ -1,4 +1,4 @@
-//Previo 12
+//Practica 12
 //Computacion Grafica eInteraccion Humano Computadora
 //Grupo:1
 //Misael Ivan Sosa Cortez
@@ -31,10 +31,19 @@
 
 
 // Function prototypes
-void KeyCallback(GLFWwindow *window, int key, int scancode, int action, int mode);
-void MouseCallback(GLFWwindow *window, double xPos, double yPos);
+void KeyCallback(GLFWwindow* window, int key, int scancode, int action, int mode);
+void MouseCallback(GLFWwindow* window, double xPos, double yPos);
 void DoMovement();
 void Animation();
+
+// Funciones agregadas para animaciones nuevas
+float ApproachValue(float current, float target, float speed);
+bool NearValue(float current, float target, float tolerance);
+void SetNormalPoseTargets();
+void StartSitAnimation();
+void StartDeadAnimation();
+void StartPawAnimation();
+void StartComboAnimation();
 
 // Window dimensions
 const GLuint WIDTH = 800, HEIGHT = 600;
@@ -113,16 +122,33 @@ float RLegs = 0.0f;
 float head = 0.0f;
 float tail = 0.0f;
 
+// Animaciones nuevas del perro
+float bodyPitch = 0.0f;      // Inclina el tronco para que la parte trasera baje
+float bodyRoll = 0.0f;       // Acuesta el cuerpo de lado
+float bodyDown = 0.0f;       // Baja ligeramente el cuerpo al sentarse
+float sitBackLegs = 0.0f;    // Dobla patas traseras hacia adelante
+float pawFrontLeg = 0.0f;    // Levanta una pata delantera para dar la patita
+
+float targetBodyPitch = 0.0f;
+float targetBodyRoll = 0.0f;
+float targetBodyDown = 0.0f;
+float targetSitBackLegs = 0.0f;
+float targetPawFrontLeg = 0.0f;
+
+int specialAnim = 0; // 0 ninguna, 1 sentarse, 2 muertito, 3 patita, 4 secuencia completa
+int comboStep = 0;
+float comboHold = 0.0f;
+int pawStep = 0;
 
 
 //KeyFrames
-float dogPosX , dogPosY , dogPosZ  ;
+float dogPosX, dogPosY, dogPosZ;
 
 #define MAX_FRAMES 20
 int i_max_steps = 190;
 int i_curr_steps = 0;
 typedef struct _frame {
-	
+
 	float rotDog;
 	float rotDogInc;
 	float dogPosX;
@@ -195,7 +221,7 @@ int main()
 	glfwWindowHint(GLFW_RESIZABLE, GL_FALSE);*/
 
 	// Create a GLFWwindow object that we can use for GLFW's functions
-	GLFWwindow* window = glfwCreateWindow(WIDTH, HEIGHT, "Previo 12_Misael Ivan Sosa Cortez", nullptr, nullptr);
+	GLFWwindow* window = glfwCreateWindow(WIDTH, HEIGHT, "Practica 12_Misael Ivan Sosa Cortez", nullptr, nullptr);
 
 	if (nullptr == window)
 	{
@@ -232,8 +258,8 @@ int main()
 
 	Shader lightingShader("Shader/lighting.vs", "Shader/lighting.frag");
 	Shader lampShader("Shader/lamp.vs", "Shader/lamp.frag");
-	
-	
+
+
 	//models
 	Model DogBody((char*)"Models/DogBody.obj");
 	Model HeadDog((char*)"Models/HeadDog.obj");
@@ -262,16 +288,16 @@ int main()
 
 
 	// First, set the container's VAO (and VBO)
-	GLuint VBO, VAO,EBO;
+	GLuint VBO, VAO, EBO;
 	glGenVertexArrays(1, &VAO);
 	glGenBuffers(1, &VBO);
-	
+
 
 	glBindVertexArray(VAO);
 	glBindBuffer(GL_ARRAY_BUFFER, VBO);
 	glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
 
-	
+
 	// Position attribute
 	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(GLfloat), (GLvoid*)0);
 	glEnableVertexAttribArray(0);
@@ -284,7 +310,7 @@ int main()
 	glUniform1i(glGetUniformLocation(lightingShader.Program, "Material.difuse"), 0);
 	glUniform1i(glGetUniformLocation(lightingShader.Program, "Material.specular"), 1);
 
-	
+
 	glm::mat4 projection = glm::perspective(camera.GetZoom(), (GLfloat)SCREEN_WIDTH / (GLfloat)SCREEN_HEIGHT, 0.1f, 100.0f);
 
 	// Game loop
@@ -304,19 +330,19 @@ int main()
 		// Clear the colorbuffer
 		glClearColor(0.1f, 0.1f, 0.1f, 1.0f);
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-	   
+
 		// OpenGL options
 		glEnable(GL_DEPTH_TEST);
 
-		
+
 		glm::mat4 modelTemp = glm::mat4(1.0f); //Temp
-		
-	
+
+
 
 		// Use cooresponding shader when setting uniforms/drawing objects
 		lightingShader.Use();
 
-        glUniform1i(glGetUniformLocation(lightingShader.Program, "diffuse"), 0);
+		glUniform1i(glGetUniformLocation(lightingShader.Program, "diffuse"), 0);
 		//glUniform1i(glGetUniformLocation(lightingShader.Program, "specular"),1);
 
 		GLint viewPosLoc = glGetUniformLocation(lightingShader.Program, "viewPos");
@@ -325,25 +351,25 @@ int main()
 
 		// Directional light
 		glUniform3f(glGetUniformLocation(lightingShader.Program, "dirLight.direction"), -0.2f, -1.0f, -0.3f);
-		glUniform3f(glGetUniformLocation(lightingShader.Program, "dirLight.ambient"),0.6f,0.6f,0.6f);
+		glUniform3f(glGetUniformLocation(lightingShader.Program, "dirLight.ambient"), 0.6f, 0.6f, 0.6f);
 		glUniform3f(glGetUniformLocation(lightingShader.Program, "dirLight.diffuse"), 0.6f, 0.6f, 0.6f);
-		glUniform3f(glGetUniformLocation(lightingShader.Program, "dirLight.specular"),0.3f, 0.3f, 0.3f);
+		glUniform3f(glGetUniformLocation(lightingShader.Program, "dirLight.specular"), 0.3f, 0.3f, 0.3f);
 
 
 		// Point light 1
-	    glm::vec3 lightColor;
-		lightColor.x= abs(sin(glfwGetTime() *Light1.x));
-		lightColor.y= abs(sin(glfwGetTime() *Light1.y));
-		lightColor.z= sin(glfwGetTime() *Light1.z);
+		glm::vec3 lightColor;
+		lightColor.x = abs(sin(glfwGetTime() * Light1.x));
+		lightColor.y = abs(sin(glfwGetTime() * Light1.y));
+		lightColor.z = sin(glfwGetTime() * Light1.z);
 
-		
+
 		glUniform3f(glGetUniformLocation(lightingShader.Program, "pointLights[0].position"), pointLightPositions[0].x, pointLightPositions[0].y, pointLightPositions[0].z);
-		glUniform3f(glGetUniformLocation(lightingShader.Program, "pointLights[0].ambient"), lightColor.x,lightColor.y, lightColor.z);
-		glUniform3f(glGetUniformLocation(lightingShader.Program, "pointLights[0].diffuse"), lightColor.x,lightColor.y,lightColor.z);
+		glUniform3f(glGetUniformLocation(lightingShader.Program, "pointLights[0].ambient"), lightColor.x, lightColor.y, lightColor.z);
+		glUniform3f(glGetUniformLocation(lightingShader.Program, "pointLights[0].diffuse"), lightColor.x, lightColor.y, lightColor.z);
 		glUniform3f(glGetUniformLocation(lightingShader.Program, "pointLights[0].specular"), 1.0f, 0.2f, 0.2f);
 		glUniform1f(glGetUniformLocation(lightingShader.Program, "pointLights[0].constant"), 1.0f);
 		glUniform1f(glGetUniformLocation(lightingShader.Program, "pointLights[0].linear"), 0.045f);
-		glUniform1f(glGetUniformLocation(lightingShader.Program, "pointLights[0].quadratic"),0.075f);
+		glUniform1f(glGetUniformLocation(lightingShader.Program, "pointLights[0].quadratic"), 0.075f);
 
 
 		// SpotLight
@@ -357,7 +383,7 @@ int main()
 		glUniform1f(glGetUniformLocation(lightingShader.Program, "spotLight.quadratic"), 0.7f);
 		glUniform1f(glGetUniformLocation(lightingShader.Program, "spotLight.cutOff"), glm::cos(glm::radians(12.0f)));
 		glUniform1f(glGetUniformLocation(lightingShader.Program, "spotLight.outerCutOff"), glm::cos(glm::radians(18.0f)));
-		
+
 
 		// Set material properties
 		glUniform1f(glGetUniformLocation(lightingShader.Program, "material.shininess"), 5.0f);
@@ -378,10 +404,10 @@ int main()
 
 		glm::mat4 model(1);
 
-	
-		
+
+
 		//Carga de modelo 
-        view = camera.GetViewMatrix();	
+		view = camera.GetViewMatrix();
 		model = glm::mat4(1);
 		glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(model));
 		Piso.Draw(lightingShader);
@@ -390,8 +416,10 @@ int main()
 		glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(model));
 		glUniform1i(glGetUniformLocation(lightingShader.Program, "transparency"), 0);
 		//Body
-		modelTemp= model = glm::translate(model, glm::vec3(dogPosX,dogPosY,dogPosZ));
-		modelTemp= model = glm::rotate(model, glm::radians(rotDog), glm::vec3(0.0f, 1.0f, 0.0f));
+		modelTemp = model = glm::translate(model, glm::vec3(dogPosX, dogPosY - bodyDown, dogPosZ));
+		modelTemp = model = glm::rotate(model, glm::radians(rotDog), glm::vec3(0.0f, 1.0f, 0.0f));
+		modelTemp = model = glm::rotate(model, glm::radians(bodyRoll), glm::vec3(0.0f, 0.0f, 1.0f));
+		modelTemp = model = glm::rotate(model, glm::radians(bodyPitch), glm::vec3(1.0f, 0.0f, 0.0f));
 		glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(model));
 		DogBody.Draw(lightingShader);
 		//Head
@@ -403,33 +431,33 @@ int main()
 		//Tail 
 		model = modelTemp;
 		model = glm::translate(model, glm::vec3(0.0f, 0.026f, -0.288f));
-		model = glm::rotate(model, glm::radians(tail), glm::vec3(0.0f, 0.0f, -1.0f)); 
-		glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(model)); 
+		model = glm::rotate(model, glm::radians(tail), glm::vec3(0.0f, 0.0f, -1.0f));
+		glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(model));
 		DogTail.Draw(lightingShader);
 		//Front Left Leg
 		model = modelTemp;
 		model = glm::translate(model, glm::vec3(0.112f, -0.044f, 0.074f));
-		model = glm::rotate(model, glm::radians(FLegs), glm::vec3(-1.0f, 0.0f, 0.0f)); 
+		model = glm::rotate(model, glm::radians(FLegs + pawFrontLeg), glm::vec3(-1.0f, 0.0f, 0.0f));
 		glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(model));
 		F_LeftLeg.Draw(lightingShader);
 		//Front Right Leg
-		model = modelTemp; 
+		model = modelTemp;
 		model = glm::translate(model, glm::vec3(-0.111f, -0.055f, 0.074f));
 		model = glm::rotate(model, glm::radians(FLegs), glm::vec3(1.0f, 0.0f, 0.0f));
 		glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(model));
 		F_RightLeg.Draw(lightingShader);
 		//Back Left Leg
-		model = modelTemp; 
-		model = glm::translate(model, glm::vec3(0.082f, -0.046, -0.218)); 
-		model = glm::rotate(model, glm::radians(RLegs), glm::vec3(1.0f, 0.0f, 0.0f)); 
-		glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(model)); 
+		model = modelTemp;
+		model = glm::translate(model, glm::vec3(0.082f, -0.046, -0.218));
+		model = glm::rotate(model, glm::radians(RLegs + sitBackLegs), glm::vec3(1.0f, 0.0f, 0.0f));
+		glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(model));
 		B_LeftLeg.Draw(lightingShader);
 		//Back Right Leg
-		model = modelTemp; 
+		model = modelTemp;
 		model = glm::translate(model, glm::vec3(-0.083f, -0.057f, -0.231f));
-		model = glm::rotate(model, glm::radians(RLegs), glm::vec3(-1.0f, 0.0f, 0.0f));
+		model = glm::rotate(model, glm::radians(RLegs - sitBackLegs), glm::vec3(-1.0f, 0.0f, 0.0f));
 		glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(model));
-		B_RightLeg.Draw(lightingShader); 
+		B_RightLeg.Draw(lightingShader);
 
 
 		model = glm::mat4(1);
@@ -439,10 +467,10 @@ int main()
 		glUniform1i(glGetUniformLocation(lightingShader.Program, "transparency"), 1);
 		model = glm::rotate(model, glm::radians(rotBall), glm::vec3(0.0f, 1.0f, 0.0f));
 		glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(model));
-	    Ball.Draw(lightingShader); 
+		Ball.Draw(lightingShader);
 		glDisable(GL_BLEND);  //Desactiva el canal alfa 
 		glBindVertexArray(0);
-	
+
 
 		// Also draw the lamp object, again binding the appropriate shader
 		lampShader.Use();
@@ -459,23 +487,23 @@ int main()
 		model = glm::scale(model, glm::vec3(0.2f)); // Make it a smaller cube
 		glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(model));
 		// Draw the light object (using light's vertex attributes)
-		
+
 		model = glm::mat4(1);
 		model = glm::translate(model, pointLightPositions[0]);
 		model = glm::scale(model, glm::vec3(0.2f)); // Make it a smaller cube
 		glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(model));
 		glBindVertexArray(VAO);
 		glDrawArrays(GL_TRIANGLES, 0, 36);
-		
+
 		glBindVertexArray(0);
 
-		
+
 		// Swap the screen buffers
 		glfwSwapBuffers(window);
 	}
 
-	
-	
+
+
 
 	// Terminate GLFW, clearing any resources allocated by GLFW.
 	glfwTerminate();
@@ -488,7 +516,7 @@ int main()
 // Moves/alters the camera positions based on user input
 void DoMovement()
 {
-	// Dog Controls (más lento)
+	// Dog Controls (mas lento)
 
 	if (keys[GLFW_KEY_4])
 	{
@@ -500,7 +528,7 @@ void DoMovement()
 		head -= 0.3f;
 	}
 
-	// Rotación del perro
+	// Rotacion del perro
 	if (keys[GLFW_KEY_R])
 	{
 		rotDog -= 0.3f; // antes 1.0f
@@ -553,7 +581,7 @@ void DoMovement()
 		camera.ProcessKeyboard(RIGHT, deltaTime);
 	}
 
-	// Movimiento de la luz (más lento también)
+	// Movimiento de la luz (mas lento tambien)
 	if (keys[GLFW_KEY_I])
 	{
 		pointLightPositions[0].x += 0.005f; // antes 0.01f
@@ -585,8 +613,36 @@ void DoMovement()
 	}
 }
 // Is called whenever a key is pressed/released via GLFW
-void KeyCallback(GLFWwindow *window, int key, int scancode, int action, int mode)
+void KeyCallback(GLFWwindow* window, int key, int scancode, int action, int mode)
 {
+
+	// Teclas nuevas no usadas:
+	// Z = sentarse
+	// X = hacerse el muertito
+	// C = dar la patita
+	// V = secuencia completa
+	if (action == GLFW_PRESS)
+	{
+		if (key == GLFW_KEY_Z)
+		{
+			StartSitAnimation();
+		}
+
+		if (key == GLFW_KEY_X)
+		{
+			StartDeadAnimation();
+		}
+
+		if (key == GLFW_KEY_C)
+		{
+			StartPawAnimation();
+		}
+
+		if (key == GLFW_KEY_V)
+		{
+			StartComboAnimation();
+		}
+	}
 
 	if (keys[GLFW_KEY_M])
 	{
@@ -642,16 +698,114 @@ void KeyCallback(GLFWwindow *window, int key, int scancode, int action, int mode
 		if (active)
 		{
 			Light1 = glm::vec3(0.2f, 0.8f, 1.0f);
-			
+
 		}
 		else
 		{
 			Light1 = glm::vec3(0);//Cuado es solo un valor en los 3 vectores pueden dejar solo una componente
 		}
 	}
-	
-	
+
+
 }
+
+float ApproachValue(float current, float target, float speed)
+{
+	if (current < target)
+	{
+		current += speed;
+		if (current > target)
+		{
+			current = target;
+		}
+	}
+	else if (current > target)
+	{
+		current -= speed;
+		if (current < target)
+		{
+			current = target;
+		}
+	}
+
+	return current;
+}
+
+bool NearValue(float current, float target, float tolerance)
+{
+	return fabs(current - target) <= tolerance;
+}
+
+void SetNormalPoseTargets()
+{
+	targetBodyPitch = 0.0f;
+	targetBodyRoll = 0.0f;
+	targetBodyDown = 0.0f;
+	targetSitBackLegs = 0.0f;
+	targetPawFrontLeg = 0.0f;
+}
+
+void StartSitAnimation()
+{
+	specialAnim = 1;
+	comboStep = 0;
+	comboHold = 0.0f;
+	pawStep = 0;
+
+	// Sentarse: las patas traseras se doblan hacia adelante hasta quedar casi horizontales,
+	// el tronco se inclina y la parte de la cola baja hacia el suelo.
+	targetBodyPitch = -22.0f;
+	targetBodyRoll = 0.0f;
+	targetBodyDown = 0.055f;
+	targetSitBackLegs = -88.0f;
+	targetPawFrontLeg = 0.0f;
+}
+
+void StartDeadAnimation()
+{
+	specialAnim = 2;
+	comboStep = 0;
+	comboHold = 0.0f;
+	pawStep = 0;
+
+	// Muertito: solo se deja caer de lado hasta quedar horizontal.
+	targetBodyPitch = 0.0f;
+	targetBodyRoll = 90.0f;
+	targetBodyDown = 0.12f;
+	targetSitBackLegs = 0.0f;
+	targetPawFrontLeg = 0.0f;
+}
+
+void StartPawAnimation()
+{
+	specialAnim = 3;
+	comboStep = 0;
+	comboHold = 0.0f;
+	pawStep = 0;
+
+	// Primero se sienta; la pata se levanta hasta que ya esta sentado.
+	targetBodyPitch = -22.0f;
+	targetBodyRoll = 0.0f;
+	targetBodyDown = 0.055f;
+	targetSitBackLegs = -88.0f;
+	targetPawFrontLeg = 0.0f;
+}
+
+void StartComboAnimation()
+{
+	specialAnim = 4;
+	comboStep = 0;
+	comboHold = 0.0f;
+	pawStep = 0;
+
+	// Paso 1 de la secuencia: sentarse.
+	targetBodyPitch = -22.0f;
+	targetBodyRoll = 0.0f;
+	targetBodyDown = 0.055f;
+	targetSitBackLegs = -88.0f;
+	targetPawFrontLeg = 0.0f;
+}
+
 void Animation() {
 
 	if (play)
@@ -685,10 +839,93 @@ void Animation() {
 		}
 
 	}
-	
+
+	// Movimiento suave para las animaciones nuevas.
+	bodyPitch = ApproachValue(bodyPitch, targetBodyPitch, 0.18f);
+	bodyRoll = ApproachValue(bodyRoll, targetBodyRoll, 0.22f);
+	bodyDown = ApproachValue(bodyDown, targetBodyDown, 0.0007f);
+	sitBackLegs = ApproachValue(sitBackLegs, targetSitBackLegs, 0.45f);
+	pawFrontLeg = ApproachValue(pawFrontLeg, targetPawFrontLeg, 0.45f);
+
+	// En la animacion individual de la patita, primero se sienta y despues levanta la pata.
+	if (specialAnim == 3)
+	{
+		bool alreadySitting = NearValue(bodyPitch, -22.0f, 1.0f) &&
+			NearValue(bodyDown, 0.055f, 0.004f) &&
+			NearValue(sitBackLegs, -88.0f, 1.0f);
+
+		if (alreadySitting && pawStep == 0)
+		{
+			comboHold += deltaTime;
+			if (comboHold >= 0.35f)
+			{
+				targetPawFrontLeg = 70.0f;
+				pawStep = 1;
+				comboHold = 0.0f;
+			}
+		}
+	}
+
+	// Secuencia completa con V:
+	// 1) sentarse, 2) dar la pata, 3) hacerse el muerto, 4) regresar normal.
+	if (specialAnim == 4)
+	{
+		bool reachedTargets = NearValue(bodyPitch, targetBodyPitch, 1.0f) &&
+			NearValue(bodyRoll, targetBodyRoll, 1.0f) &&
+			NearValue(bodyDown, targetBodyDown, 0.004f) &&
+			NearValue(sitBackLegs, targetSitBackLegs, 1.0f) &&
+			NearValue(pawFrontLeg, targetPawFrontLeg, 1.0f);
+
+		if (reachedTargets)
+		{
+			comboHold += deltaTime;
+
+			if (comboHold >= 0.6f)
+			{
+				comboHold = 0.0f;
+				comboStep++;
+
+				if (comboStep == 1)
+				{
+					// Dar la pata despues de estar sentado.
+					targetBodyPitch = -22.0f;
+					targetBodyRoll = 0.0f;
+					targetBodyDown = 0.055f;
+					targetSitBackLegs = -88.0f;
+					targetPawFrontLeg = 70.0f;
+				}
+				else if (comboStep == 2)
+				{
+					// Hacerse el muerto: deja de dar la pata y cae de lado.
+					targetBodyPitch = 0.0f;
+					targetBodyRoll = 90.0f;
+					targetBodyDown = 0.12f;
+					targetSitBackLegs = 0.0f;
+					targetPawFrontLeg = 0.0f;
+				}
+				else if (comboStep == 3)
+				{
+					// Regresar a la normalidad.
+					SetNormalPoseTargets();
+				}
+				else if (comboStep >= 4)
+				{
+					specialAnim = 0;
+					comboStep = 0;
+					comboHold = 0.0f;
+					pawStep = 0;
+				}
+			}
+		}
+		else
+		{
+			comboHold = 0.0f;
+		}
+	}
+
 }
 
-void MouseCallback(GLFWwindow *window, double xPos, double yPos)
+void MouseCallback(GLFWwindow* window, double xPos, double yPos)
 {
 	if (firstMouse)
 	{
